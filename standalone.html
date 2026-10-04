@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Alarm</title>
+<meta name="description" content="A smart alarm clock — multiple alarms, repeat days, snooze, history, offline.">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="data:application/manifest+json,%7B%22id%22%3A%20%22./%22%2C%20%22name%22%3A%20%22Smart%20Alarm%22%2C%20%22short_name%22%3A%20%22Alarm%22%2C%20%22description%22%3A%20%22A%20smart%20alarm%20clock%20%5Cu2014%20multiple%20alarms%2C%20repeat%20days%2C%20snooze%2C%20history%2C%20offline.%22%2C%20%22lang%22%3A%20%22en%22%2C%20%22dir%22%3A%20%22ltr%22%2C%20%22start_url%22%3A%20%22./%22%2C%20%22scope%22%3A%20%22./%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22orientation%22%3A%20%22portrait%22%2C%20%22background_color%22%3A%20%22%230b1020%22%2C%20%22theme_color%22%3A%20%22%230b1020%22%2C%20%22icons%22%3A%20%5B%5D%7D">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#0f172a; --panel:rgba(30,41,59,.72); --border:rgba(148,163,184,.18);
+    --accent:#38bdf8; --accent2:#22c55e; --danger:#ef4444; --text:#e8eefb; --muted:#94a3b8;
+    --radius:16px; --shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 15% -10%, #16233f 0%, var(--bg) 55%) fixed, var(--bg);
+    color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.45; padding:20px 16px 90px;
+  }
+  .wrap{max-width:560px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .fmt{border:1px solid var(--border);background:var(--panel);color:var(--text);
+    border-radius:999px;padding:6px 12px;font-size:.8rem;cursor:pointer}
+  .fmt:hover{border-color:var(--accent)}
+  .clock{text-align:center;margin:6px 0 4px}
+  .clock .t{font-size:clamp(2.8rem,16vw,4.2rem);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1}
+  .clock .t .s{color:var(--accent);font-size:.42em;font-weight:600;margin-left:.15em}
+  .clock .d{color:var(--muted);font-size:.92rem}
+  .next{text-align:center;color:var(--muted);font-size:.86rem;margin:10px 0 20px;min-height:1.3em}
+  .next b{color:var(--accent)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:16px;margin-bottom:14px}
+  h2{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  label{display:block;font-size:.82rem;color:var(--muted);margin:10px 0 5px}
+  input[type=time],input[type=text]{width:100%;background:#0b1220;border:1px solid var(--border);
+    color:var(--text);border-radius:10px;padding:12px;font-size:1rem}
+  input:focus-visible,button:focus-visible,.toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .days{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .day{border:1px solid var(--border);background:#0b1220;color:var(--muted);border-radius:999px;
+    padding:7px 11px;font-size:.78rem;cursor:pointer;user-select:none}
+  .day[aria-pressed="true"]{background:var(--accent);color:#04121f;border-color:var(--accent);font-weight:700}
+  .row{display:flex;gap:10px;margin-top:14px}
+  button{cursor:pointer;border:none;border-radius:10px;font-weight:700;font-size:.95rem;padding:12px 14px}
+  .primary{background:var(--accent);color:#04121f;flex:1}
+  .primary:hover{filter:brightness(1.08)}
+  .ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .ghost:hover{border-color:var(--accent)}
+  .err{color:#fca5a5;font-size:.82rem;min-height:1.2em;margin-top:8px}
+  ul{list-style:none;margin:0;padding:0}
+  .alarm{display:flex;align-items:center;gap:12px;background:#0b1220;border:1px solid var(--border);
+    border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .alarm.off{opacity:.5}
+  .alarm .info{flex:1;min-width:0}
+  .alarm .time{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .alarm .meta{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .toggle{width:46px;height:26px;border-radius:999px;background:#334155;position:relative;flex:none;transition:background .18s}
+  .toggle[aria-checked="true"]{background:var(--accent)}
+  .toggle::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+    background:#fff;transition:transform .18s}
+  .toggle[aria-checked="true"]::after{transform:translateX(20px)}
+  .icon{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 9px;font-size:.85rem}
+  .icon:hover{border-color:var(--accent);color:var(--text)}
+  .empty{text-align:center;color:var(--muted);font-size:.9rem;padding:18px 6px}
+  .empty b{color:var(--text);display:block;margin-bottom:4px}
+  .hist{font-size:.82rem;color:var(--muted)}
+  .hist li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)}
+  /* ringing overlay */
+  .overlay{position:fixed;inset:0;background:rgba(5,8,18,.86);backdrop-filter:blur(6px);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .overlay.show{display:flex}
+  .ring{background:linear-gradient(160deg,#1e293b,#0b1220);border:1px solid var(--border);border-radius:20px;
+    padding:28px 22px;text-align:center;max-width:360px;width:100%;box-shadow:var(--shadow);
+    animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
+  .ring .bell{font-size:2.6rem}
+  .ring .rt{font-size:2.2rem;font-weight:700;font-variant-numeric:tabular-nums;margin:8px 0 2px}
+  .ring .rl{color:var(--muted);margin-bottom:20px}
+  .ring .row button{flex:1}
+  .stop{background:var(--danger);color:#fff}
+  .snooze{background:var(--accent2);color:#04210f}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);
+    background:#0b1220;border:1px solid var(--border);color:var(--text);padding:10px 16px;border-radius:999px;
+    font-size:.85rem;opacity:0;transition:.25s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  @media (min-width:720px){body{padding-top:40px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Smart Alarm</div>
+    <button class="fmt" id="fmtBtn" type="button" aria-label="Toggle 12 or 24 hour format">24-hour</button>
+  </header>
+
+  <div class="clock">
+    <div class="t" id="clockTime">--:--<span class="s" id="clockSec">:--</span></div>
+    <div class="d" id="clockDate">&nbsp;</div>
+  </div>
+  <div class="next" id="nextInfo"></div>
+
+  <section class="card">
+    <h2 id="formTitle">New alarm</h2>
+    <label for="timeInput">Time</label>
+    <input type="time" id="timeInput">
+    <label for="labelInput">Label (optional)</label>
+    <input type="text" id="labelInput" placeholder="Wake up" maxlength="40">
+    <label>Repeat</label>
+    <div class="days" id="days" role="group" aria-label="Repeat days"></div>
+    <div class="err" id="formErr" role="alert" aria-live="polite"></div>
+    <div class="row">
+      <button class="primary" id="saveBtn" type="button">Save alarm</button>
+      <button class="ghost" id="cancelBtn" type="button" hidden>Cancel</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Your alarms</h2>
+    <ul id="alarmList"></ul>
+    <div class="empty" id="emptyState" hidden>
+      <b>No alarms yet</b>
+      Set a time above and tap “Save alarm”.
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>History</h2>
+    <ul class="hist" id="histList"></ul>
+    <div class="empty" id="histEmpty" hidden>No alarms have rung yet.</div>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="ringLabel">
+  <div class="ring">
+    <div class="bell" aria-hidden="true">🔔</div>
+    <div class="rt" id="ringTime">--:--</div>
+    <div class="rl" id="ringLabel">Alarm</div>
+    <div class="row">
+      <button class="stop" id="stopBtn" type="button">Stop</button>
+      <button class="snooze" id="snoozeBtn" type="button">Snooze 5 min</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const STORE = "smartAlarm.v1";
+const $ = id => document.getElementById(id);
+
+let state = { alarms: [], format24: true, history: [] };
+let ringingId = null, editingId = null, audioCtx = null;
+
+/* ---------- persistence ---------- */
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && Array.isArray(d.alarms)){
+        state.alarms = d.alarms;
+        state.format24 = d.format24 !== false;
+        state.history = Array.isArray(d.history) ? d.history : [];
+      }
+    }
+  }catch(e){ /* corrupt store -> start fresh */ }
+}
+function save(){
+  try{ localStorage.setItem(STORE, JSON.stringify(state)); }
+  catch(e){ toast("Could not save (storage full?)"); }
+}
+
+/* ---------- helpers ---------- */
+const pad = n => String(n).padStart(2,"0");
+const dateKey = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+function fmtTime(hhmm){
+  const [h,m] = hhmm.split(":").map(Number);
+  if(state.format24) return pad(h)+":"+pad(m);
+  const ap = h < 12 ? "AM" : "PM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return h12+":"+pad(m)+" "+ap;
+}
+function daySummary(a){
+  if(!a.days.length) return "Once";
+  if(a.days.length === 7) return "Every day";
+  return a.days.slice().sort((x,y)=>x-y).map(d=>DAYS[d]).join(", ");
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------- render ---------- */
+function renderDays(){
+  const box = $("days"); box.innerHTML = "";
+  DAYS.forEach((name,i)=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "day"; b.textContent = name;
+    b.dataset.day = i; b.setAttribute("aria-pressed","false");
+    b.addEventListener("click", ()=> b.setAttribute("aria-pressed", b.getAttribute("aria-pressed")==="true" ? "false" : "true"));
+    box.appendChild(b);
+  });
+}
+function selectedDays(){
+  return [...document.querySelectorAll(".day")].filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>Number(b.dataset.day));
+}
+function renderAlarms(){
+  const list = $("alarmList"); list.innerHTML = "";
+  $("emptyState").hidden = state.alarms.length > 0;
+  state.alarms.forEach(a=>{
+    const li = document.createElement("li");
+    li.className = "alarm" + (a.enabled ? "" : " off");
+    li.dataset.id = a.id;
+    li.innerHTML =
+      '<div class="info">'+
+        '<div class="time">'+fmtTime(a.time)+'</div>'+
+        '<div class="meta">'+escapeHtml(a.label || "Alarm")+' · '+daySummary(a)+'</div>'+
+      '</div>'+
+      '<button class="toggle" role="switch" aria-checked="'+(a.enabled?"true":"false")+'" aria-label="Enable alarm" data-act="toggle"></button>'+
+      '<button class="icon" data-act="edit" aria-label="Edit alarm">Edit</button>'+
+      '<button class="icon" data-act="delete" aria-label="Delete alarm">Del</button>';
+    list.appendChild(li);
+  });
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function renderHistory(){
+  const list = $("histList"); list.innerHTML = "";
+  $("histEmpty").hidden = state.history.length > 0;
+  state.history.slice(0,12).forEach(h=>{
+    const li = document.createElement("li");
+    li.innerHTML = "<span>"+escapeHtml(h.label||"Alarm")+" · "+fmtTime(h.time)+"</span><span>"+escapeHtml(h.at)+"</span>";
+    list.appendChild(li);
+  });
+}
+function renderNext(){
+  const now = new Date();
+  let best = null;
+  state.alarms.filter(a=>a.enabled).forEach(a=>{
+    let cand = null;
+    if(a.snoozeUntil){ cand = new Date(a.snoozeUntil); }
+    else{
+      const [h,m] = a.time.split(":").map(Number);
+      for(let add=0; add<=7; add++){
+        const d = new Date(now); d.setDate(d.getDate()+add); d.setHours(h,m,0,0);
+        if(d <= now) continue;
+        const wk = d.getDay();
+        const matches = a.days.length ? a.days.includes(wk) : true; // one-time: next occurrence
+        if(matches){ cand = d; break; }
+      }
+    }
+    if(cand && (!best || cand < best)) best = cand;
+  });
+  if(!best){ $("nextInfo").innerHTML = state.alarms.some(a=>a.enabled) ? "" : "No alarms set."; return; }
+  const ms = best - now;
+  const h = Math.floor(ms/3600000), m = Math.floor(ms%3600000/60000);
+  const when = (best.toDateString()===now.toDateString()) ? "today" : DAYS[best.getDay()];
+  $("nextInfo").innerHTML = "Next alarm in <b>"+(h>0?h+"h ":"")+m+"m</b> ("+when+" "+fmtTime(pad(best.getHours())+":"+pad(best.getMinutes()))+")";
+}
+
+/* ---------- clock + alarm engine ---------- */
+function tick(){
+  const now = new Date();
+  $("clockTime").firstChild.nodeValue = state.format24 ? pad(now.getHours())+":"+pad(now.getMinutes()) : fmtTime(pad(now.getHours())+":"+pad(now.getMinutes())).replace(/ (AM|PM)/,"");
+  $("clockSec").textContent = ":"+pad(now.getSeconds());
+  $("clockDate").textContent = now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+  if(!ringingId){
+    const key = dateKey(now);
+    for(const a of state.alarms){
+      if(!a.enabled) continue;
+      if(a.snoozeUntil && now.getTime() >= a.snoozeUntil){ ring(a, true); break; }
+      const hhmm = pad(now.getHours())+":"+pad(now.getMinutes());
+      if(a.time === hhmm && a.firedOn !== key){
+        const match = a.days.length ? a.days.includes(now.getDay()) : true;
+        if(match){ ring(a, false); break; }
+      }
+    }
+  }
+  renderNext();
+}
+
+function beep(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const t = audioCtx.currentTime;
+    for(let i=0;i<3;i++){
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type="sine"; o.frequency.value=880;
+      g.gain.setValueAtTime(0.0001,t+i*0.35);
+      g.gain.exponentialRampToValueAtTime(0.25,t+i*0.35+0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+i*0.35+0.3);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t+i*0.35); o.stop(t+i*0.35+0.32);
+    }
+  }catch(e){ /* audio may be blocked before first gesture */ }
+}
+
+function ring(a, isSnooze){
+  ringingId = a.id;
+  a.firedOn = dateKey(new Date());
+  a.snoozeUntil = null;
+  $("ringTime").textContent = fmtTime(a.time);
+  $("ringLabel").textContent = a.label || "Alarm";
+  $("overlay").classList.add("show");
+  beep();
+  state.history.unshift({ label:a.label||"Alarm", time:a.time, at:new Date().toLocaleString() });
+  state.history = state.history.slice(0,50);
+  save(); renderHistory();
+}
+
+function dismiss(){
+  const a = state.alarms.find(x=>x.id===ringingId);
+  if(a){
+    if(!a.days.length) a.enabled = false;   // one-time alarms switch off after ringing
+    a.snoozeUntil = null;
+  }
+  ringingId = null; $("overlay").classList.remove("show");
+  save(); renderAlarms(); renderNext();
+}
+function snooze(){
+  const a = state.alarms.find(x=>x.id===ringingId);
+  if(a) a.snoozeUntil = Date.now() + 5*60*1000;
+  ringingId = null; $("overlay").classList.remove("show");
+  save(); renderAlarms(); renderNext(); toast("Snoozed for 5 minutes");
+}
+
+/* ---------- form ---------- */
+function resetForm(){
+  editingId = null;
+  $("formTitle").textContent = "New alarm";
+  $("timeInput").value = "";
+  $("labelInput").value = "";
+  [...document.querySelectorAll(".day")].forEach(b=>b.setAttribute("aria-pressed","false"));
+  $("formErr").textContent = "";
+  $("cancelBtn").hidden = true;
+  $("saveBtn").textContent = "Save alarm";
+}
+function saveAlarm(){
+  const time = $("timeInput").value;
+  const label = $("labelInput").value.trim();
+  const days = selectedDays();
+  if(!/^\d{2}:\d{2}$/.test(time)){ $("formErr").textContent = "Please choose a valid time."; return; }
+
+  const dup = state.alarms.find(a => a.id !== editingId && a.time === time &&
+      a.days.slice().sort().join() === days.slice().sort().join());
+  if(dup){ $("formErr").textContent = "An identical alarm ("+fmtTime(time)+", "+daySummary(dup)+") already exists."; return; }
+
+  if(editingId){
+    const a = state.alarms.find(x=>x.id===editingId);
+    a.time = time; a.label = label; a.days = days; a.firedOn = null; a.snoozeUntil = null;
+    toast("Alarm updated");
+  }else{
+    state.alarms.push({ id:uid(), time, label, days, enabled:true, firedOn:null, snoozeUntil:null });
+    toast("Alarm set for "+fmtTime(time));
+  }
+  save(); renderAlarms(); renderNext(); resetForm();
+}
+function editAlarm(id){
+  const a = state.alarms.find(x=>x.id===id); if(!a) return;
+  editingId = id;
+  $("formTitle").textContent = "Edit alarm";
+  $("timeInput").value = a.time;
+  $("labelInput").value = a.label || "";
+  [...document.querySelectorAll(".day")].forEach(b=> b.setAttribute("aria-pressed", a.days.includes(Number(b.dataset.day)) ? "true":"false"));
+  $("formErr").textContent = "";
+  $("cancelBtn").hidden = false;
+  $("saveBtn").textContent = "Update alarm";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+/* ---------- events ---------- */
+$("saveBtn").addEventListener("click", saveAlarm);
+$("cancelBtn").addEventListener("click", resetForm);
+$("stopBtn").addEventListener("click", dismiss);
+$("snoozeBtn").addEventListener("click", snooze);
+$("fmtBtn").addEventListener("click", ()=>{
+  state.format24 = !state.format24;
+  $("fmtBtn").textContent = state.format24 ? "24-hour" : "12-hour";
+  save(); renderAlarms(); renderNext(); tick();
+});
+$("alarmList").addEventListener("click", e=>{
+  const btn = e.target.closest("[data-act]"); if(!btn) return;
+  const id = btn.closest(".alarm").dataset.id;
+  const a = state.alarms.find(x=>x.id===id); if(!a) return;
+  const act = btn.dataset.act;
+  if(act==="toggle"){ a.enabled = !a.enabled; if(a.enabled){ a.firedOn=null; a.snoozeUntil=null; } save(); renderAlarms(); renderNext(); }
+  else if(act==="edit"){ editAlarm(id); }
+  else if(act==="delete"){ state.alarms = state.alarms.filter(x=>x.id!==id); save(); renderAlarms(); renderNext(); toast("Alarm deleted"); }
+});
+
+/* ---------- boot ---------- */
+load();
+renderDays();
+$("fmtBtn").textContent = state.format24 ? "24-hour" : "12-hour";
+renderAlarms(); renderHistory(); tick();
+setInterval(tick, 1000);
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
